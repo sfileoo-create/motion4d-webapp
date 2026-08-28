@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Редактирование новости</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg: var(--tg-theme-bg-color, #ffffff);
+    --text: var(--tg-theme-text-color, #111111);
+    --hint: var(--tg-theme-hint-color, #999999);
+    --button: var(--tg-theme-button-color, #2481cc);
+    --button-text: var(--tg-theme-button-text-color, #ffffff);
+    --secondary-bg: var(--tg-theme-secondary-bg-color, #f0f0f0);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  body {
+    padding: 16px;
+    min-height: 100vh;
+  }
+  .label {
+    font-size: 13px;
+    color: var(--hint);
+    margin-bottom: 8px;
+  }
+  textarea {
+    width: 100%;
+    min-height: 45vh;
+    background: var(--secondary-bg);
+    color: var(--text);
+    border: none;
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 16px;
+    line-height: 1.4;
+    resize: vertical;
+    font-family: inherit;
+  }
+  textarea:focus {
+    outline: 2px solid var(--button);
+  }
+  .counter {
+    text-align: right;
+    font-size: 12px;
+    color: var(--hint);
+    margin-top: 6px;
+  }
+  .counter.over {
+    color: #e05353;
+  }
+  .fallback {
+    text-align: center;
+    padding: 40px 16px;
+    color: var(--hint);
+  }
+  .save-fallback {
+    margin-top: 16px;
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 10px;
+    background: var(--button);
+    color: var(--button-text);
+    font-size: 16px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="label">Текст новости — отредактируйте и сохраните:</div>
+  <textarea id="text" maxlength="1200"></textarea>
+  <div class="counter" id="counter">0 / 1000</div>
+  <button class="save-fallback" id="saveFallback" style="display:none;">Сохранить</button>
+</div>
+
+<script>
+(function () {
+  var tg = window.Telegram && window.Telegram.WebApp;
+  var params = new URLSearchParams(window.location.search);
+  var newsId = params.get("news_id");
+  var initialText = params.get("text") || "";
+  try { initialText = decodeURIComponent(initialText); } catch (e) {}
+
+  var textarea = document.getElementById("text");
+  var counter = document.getElementById("counter");
+  var SOFT_LIMIT = 1000;
+
+  textarea.value = initialText;
+
+  function updateCounter() {
+    var len = textarea.value.length;
+    counter.textContent = len + " / " + SOFT_LIMIT;
+    counter.className = "counter" + (len > SOFT_LIMIT ? " over" : "");
+  }
+  textarea.addEventListener("input", updateCounter);
+  updateCounter();
+
+  function doSave() {
+    var text = textarea.value.trim();
+    if (!text || !newsId) return;
+    var payload = JSON.stringify({ news_id: newsId, text: text });
+    if (tg) {
+      tg.sendData(payload);
+    } else {
+      alert("Открыто вне Telegram — сохранение недоступно.");
+    }
+  }
+
+  if (tg) {
+    tg.ready();
+    tg.expand();
+    tg.MainButton.setText("Сохранить");
+    tg.MainButton.show();
+    tg.MainButton.onClick(doSave);
+  } else {
+    document.getElementById("saveFallback").style.display = "block";
+    document.getElementById("saveFallback").addEventListener("click", doSave);
+  }
+})();
+</script>
+
+</body>
+</html>
