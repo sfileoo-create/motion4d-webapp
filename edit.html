@@ -24,7 +24,10 @@
   }
   body {
     padding: 16px;
-    min-height: 100vh;
+    /* высота задаётся через JS один раз при загрузке (--page-height) —
+       не vh: vh пересчитывается, когда открывается системная клавиатура,
+       из-за чего страница визуально "схлопывалась" при тапе на поле */
+    min-height: var(--page-height, 100vh);
   }
   .label {
     font-size: 13px;
@@ -33,7 +36,7 @@
   }
   textarea {
     width: 100%;
-    min-height: 45vh;
+    height: var(--textarea-height, 320px);
     background: var(--secondary-bg);
     color: var(--text);
     border: none;
@@ -86,6 +89,14 @@
 <script>
 (function () {
   var tg = window.Telegram && window.Telegram.WebApp;
+
+  // Фиксируем высоту один раз при загрузке (до открытия системной
+  // клавиатуры) — используем viewportStableHeight, если доступен, он не
+  // учитывает клавиатуру в отличие от viewportHeight/window.innerHeight.
+  var stableHeight = (tg && tg.viewportStableHeight) || window.innerHeight;
+  document.documentElement.style.setProperty("--page-height", stableHeight + "px");
+  document.documentElement.style.setProperty("--textarea-height", Math.round(stableHeight * 0.45) + "px");
+
   var params = new URLSearchParams(window.location.search);
   var newsId = params.get("news_id");
   var initialText = params.get("text") || "";
