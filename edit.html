@@ -24,19 +24,27 @@
   }
   body {
     padding: 16px;
-    /* высота задаётся через JS один раз при загрузке (--page-height) —
-       не vh: vh пересчитывается, когда открывается системная клавиатура,
-       из-за чего страница визуально "схлопывалась" при тапе на поле */
-    min-height: var(--page-height, 100vh);
+    padding-bottom: 32px;
   }
   .label {
     font-size: 13px;
     color: var(--hint);
     margin-bottom: 8px;
   }
-  textarea {
+  .field {
+    margin-bottom: 16px;
+  }
+  .preview-img {
     width: 100%;
-    height: var(--textarea-height, 320px);
+    max-height: 220px;
+    object-fit: cover;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    display: none;
+    background: var(--secondary-bg);
+  }
+  input[type="text"], textarea {
+    width: 100%;
     background: var(--secondary-bg);
     color: var(--text);
     border: none;
@@ -44,10 +52,16 @@
     padding: 12px;
     font-size: 16px;
     line-height: 1.4;
-    resize: vertical;
     font-family: inherit;
   }
-  textarea:focus {
+  input[type="text"] {
+    height: 44px;
+  }
+  textarea {
+    height: var(--textarea-height, 240px);
+    resize: vertical;
+  }
+  input:focus, textarea:focus {
     outline: 2px solid var(--button);
   }
   .counter {
@@ -65,7 +79,7 @@
     color: var(--hint);
   }
   .save-fallback {
-    margin-top: 16px;
+    margin-top: 8px;
     width: 100%;
     padding: 14px;
     border: none;
@@ -80,9 +94,24 @@
 <body>
 
 <div id="app">
-  <div class="label">Текст новости — отредактируйте и сохраните:</div>
-  <textarea id="text" maxlength="1200"></textarea>
-  <div class="counter" id="counter">0 / 1000</div>
+  <img class="preview-img" id="previewImg" alt="">
+
+  <div class="field">
+    <div class="label">Заголовок:</div>
+    <input type="text" id="title" maxlength="120">
+  </div>
+
+  <div class="field">
+    <div class="label">Текст новости:</div>
+    <textarea id="text" maxlength="1200"></textarea>
+    <div class="counter" id="counter">0 / 1000</div>
+  </div>
+
+  <div class="field">
+    <div class="label">Хэштеги (тематические, через пробел — канал добавится отдельно):</div>
+    <input type="text" id="hashtags" maxlength="120">
+  </div>
+
   <button class="save-fallback" id="saveFallback" style="display:none;">Сохранить</button>
 </div>
 
@@ -90,23 +119,40 @@
 (function () {
   var tg = window.Telegram && window.Telegram.WebApp;
 
-  // Фиксируем высоту один раз при загрузке (до открытия системной
-  // клавиатуры) — используем viewportStableHeight, если доступен, он не
-  // учитывает клавиатуру в отличие от viewportHeight/window.innerHeight.
+  // Фиксируем высоту текстового поля один раз при загрузке (до открытия
+  // системной клавиатуры) — используем viewportStableHeight, если
+  // доступен, он не учитывает клавиатуру в отличие от viewportHeight.
   var stableHeight = (tg && tg.viewportStableHeight) || window.innerHeight;
-  document.documentElement.style.setProperty("--page-height", stableHeight + "px");
-  document.documentElement.style.setProperty("--textarea-height", Math.round(stableHeight * 0.45) + "px");
+  document.documentElement.style.setProperty("--textarea-height", Math.round(stableHeight * 0.35) + "px");
 
   var params = new URLSearchParams(window.location.search);
   var newsId = params.get("news_id");
-  var initialText = params.get("text") || "";
-  try { initialText = decodeURIComponent(initialText); } catch (e) {}
 
+  function readParam(name) {
+    var v = params.get(name) || "";
+    try { v = decodeURIComponent(v); } catch (e) {}
+    return v;
+  }
+
+  var titleInput = document.getElementById("title");
   var textarea = document.getElementById("text");
+  var hashtagsInput = document.getElementById("hashtags");
   var counter = document.getElementById("counter");
+  var previewImg = document.getElementById("previewImg");
   var SOFT_LIMIT = 1000;
 
-  textarea.value = initialText;
+  titleInput.value = readParam("title");
+  textarea.value = readParam("text");
+  hashtagsInput.value = readParam("hashtags");
+
+  var imageUrl = readParam("image");
+  if (imageUrl) {
+    previewImg.src = imageUrl;
+    previewImg.style.display = "block";
+    previewImg.addEventListener("error", function () {
+      previewImg.style.display = "none";
+    });
+  }
 
   function updateCounter() {
     var len = textarea.value.length;
@@ -119,7 +165,12 @@
   function doSave() {
     var text = textarea.value.trim();
     if (!text || !newsId) return;
-    var payload = JSON.stringify({ news_id: newsId, text: text });
+    var payload = JSON.stringify({
+      news_id: newsId,
+      text: text,
+      title: titleInput.value.trim(),
+      hashtags: hashtagsInput.value.trim(),
+    });
     if (tg) {
       tg.sendData(payload);
     } else {
